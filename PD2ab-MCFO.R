@@ -1,4 +1,4 @@
-c11.mcfo=readRDS("/Users/jefferis/Downloads/PD2a1-b1mcfo.rds")
+c11.mcfo=readRDS("PD2a1-b1mcfo.rds")
 
 c11.mcfo2 = c11.mcfo[!names(c11.mcfo) %in% c(
   "cell1_GMR_37G11_AE_01-20140618_19_B6-Aligned63xScale_c0.swc",
@@ -20,6 +20,7 @@ hc=nhclust(scoremat = aba)
 plot(hc, labels=c11.mcfo2[,'type'])
 
 # try removing primary neurite 
+library(catnat)
 pn=primary.neurite(c11.mcfo2, resample=F)
 
 # works, but there are some mini branches that complicate this
