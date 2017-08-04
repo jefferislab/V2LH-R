@@ -1,0 +1,167 @@
+---
+title: "PNInputEM"
+author: "Gregory Jefferis"
+date: "27/06/2017"
+output: html_document
+---
+
+# Intro
+
+We're going to take a look at the inputs that Alex has found for the neurons
+marked up as "Mike's C11"
+
+```{r startup, message=FALSE}
+library(elmr)
+library(dplyr)
+rgl::setupKnitr()
+```
+
+
+```{r, cache=TRUE}
+mikec11=read.neurons.catmaid("annotation:^PD2a1/b1")
+```
+
+```{r, cache=TRUE}
+pncc = catmaid_get_connectors_between('annotation:^PN$', 
+                                    post_skids = "annotation:^PD2a1/b1")
+```
+
+Where are the inputs located? For each synapse, see if it's close to MB or LH
+surface (a few outputs are closer to LH).
+
+```{r}
+lhr=as.mesh3d(subset(FAFB13NP.surf, "LH_R"))
+mbr=as.mesh3d(subset(FAFB13NP.surf, "MB_CA_R"))
+
+pncc %>% 
+  select(connector_x:connector_z) %>%
+  pointsinside(surf = lhr, rval = 'dist') -> lhdist
+pncc %>% 
+  select(connector_x:connector_z) %>%
+  pointsinside(surf = mbr, rval = 'dist') -> mbdist
+pncc$np=ifelse(mbdist>lhdist, "MB", "LH")
+```
+
+OK, let's summarise synapse location. Quite a few 
+
+```{r}
+table(pncc$np)
+table(pncc$post_skid, pncc$np)
+```
+
+Let's define some functions to handle PN names.
+
+```{r}
+get_names <- function(x) {
+  if(is.numeric(x)) catmaid_get_neuronnames(x) else x
+}
+glom <- function(x) {
+  nn=get_names(x)
+  stringr::str_match(nn, "[Gg]lomerulus ([A-z1-7]{1,}[^ ]*) ")[,2]
+}
+```
+
+```{r}
+table(pncc$np, glom(pncc$pre_skid), pncc$post_skid)
+```
+
+Now let's take a look at all connections onto the dendrites of LHNs
+
+First fetch all connections
+
+```{r}
+incc = catmaid_get_connectors_between(post_skids = "annotation:^PD2a1/b1")
+```
+
+Now assign them to LH, Calyx or Other
+```{r}
+# less than 5 µm outside LH surface
+inlh=pointsinside(incc[,c('connector_x', 'connector_y','connector_z')],
+                       surf = lhr, rval = 'dist') > -5e3
+
+inmb=pointsinside(incc[,c('connector_x', 'connector_y','connector_z')],
+                       surf = mbr, rval = 'dist') > -5e3
+incc$np='other'
+incc$np[inlh]='LH'
+incc$np[inmb]='MB'
+table(incc$np)
+```
+
+```{r, webgl=TRUE}
+clear3d()
+points3d(incc[,c('post_node_x', 'post_node_y','post_node_z')],
+         col=rainbow(3)[factor(incc$np)])
+wire3d(lhr)
+```
+
+OK now that we have divided inputs, let's look at fraction of them that are 
+PNs etc
+
+```{r}
+pn.ids=catmaid_skids('annotation:^PN$')
+lhdone.ids=catmaid_skids('annotation:^LH_DONE$')
+pn.done.ids=intersect(pn.ids, lhdone.ids)
+a2sc.ids=catmaid_skids("annotation:^MBON a2sc")
+```
+
+```{r}
+incc$intype='other'
+incc$intype[incc$pre_skid%in%pn.ids]='PN'
+incc$intype[incc$pre_skid%in%a2sc.ids]='a2sc'
+```
+
+Let's cross-classify inputs by presynaptic type and location:
+
+```{r}
+xt=xtabs(~intype+np, data = incc)
+xt
+```
+
+So `r xt['a2sc','LH']/sum(xt[c('a2sc','PN'),'LH'])*100` of LH inputs are from
+the a2sc.
+
+Let's look at the relationship between input type and location
+
+```{r, webgl=TRUE}
+clear3d()
+points3d(incc[,c('post_node_x', 'post_node_y','post_node_z')],
+         col=rainbow(3)[factor(incc$intype)])
+wire3d(lhr)
+```
+
+Might want to check a few of those a2sc inputs for dendritic vs axonal.
+
+Summarise by LHON
+
+```{r}
+incc %>%
+  filter(np=='LH') %>%
+  xtabs(~post_skid+intype, data=.)
+```
+
+
+```{r}
+incc %>%
+  xtabs(~post_skid+intype+np, data=.)
+```
+
+For the unidentified inputs, would be nice to get an indication of 
+whether they are attached to big neurons or not.
+
+```{r}
+subset(incc, np=='MB' & intype!='PN')[,'pre_skid'] -> mbinputs
+nn=catmaid_get_neuronnames(mbinputs) 
+data.frame(skid=names(nn), name=nn)  %>% 
+  group_by(skid, name) %>% 
+  summarise(n=n()) %>% 
+  arrange(desc(n)) -> sdf
+knitr::kable(sdf)
+```
+
+
+```{r, eval=FALSE}
+incc %>%
+  filter(np=='LH' & intype=='other') %>%
+  xtabs(~post_skid+)
+```
+
