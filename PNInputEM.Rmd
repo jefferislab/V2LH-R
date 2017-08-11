@@ -145,10 +145,13 @@ incc %>%
   xtabs(~post_skid+intype+np, data=.)
 ```
 
-For the unidentified inputs, would be nice to get an indication of 
-whether they are attached to big neurons or not.
 
-```{r}
+## Unidentified inputs
+
+For the unidentified inputs, would be nice to get an indication of 
+whether they are attached to big neurons or not. First for the MB.
+
+```{r MB unidentified}
 subset(incc, np=='MB' & intype!='PN')[,'pre_skid'] -> mbinputs
 nn=catmaid_get_neuronnames(mbinputs) 
 data.frame(skid=names(nn), name=nn)  %>% 
@@ -156,6 +159,24 @@ data.frame(skid=names(nn), name=nn)  %>%
   summarise(n=n()) %>% 
   arrange(desc(n)) -> sdf
 knitr::kable(sdf)
+```
+
+Now for the LH
+
+```{r LH unidentified}
+subset(incc, np=='LH' & intype!='PN')[,'pre_skid'] -> lhinputs
+lhnn=catmaid_get_neuronnames(lhinputs) 
+data.frame(skid=names(lhnn), name=lhnn)  %>% 
+  group_by(skid, name) %>% 
+  summarise(n=n()) %>% 
+  arrange(desc(n)) -> sdflh
+plot(table(sdflh$n))
+plot(ecdf(sdflh$n), verticals = T, 
+     main = 'Cumulative Distribution Synaptic Partner Strength',
+     ylab='Cumulative Fraction Total Inputs',
+     xlab='Connections per partner')
+# just take a look at inputs n>1
+knitr::kable(filter(sdflh, n>1))
 ```
 
 
