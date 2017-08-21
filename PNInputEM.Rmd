@@ -180,6 +180,50 @@ knitr::kable(filter(sdflh, n>1))
 ```
 
 
+## Input clustering
+
+Let's see if there is different classes of inputs are located on different
+parts of the LHN dendritic tree. We could ask a few different questions.
+
+* Is there any relationship between Strahler order and input type?
+* Are inputs of the same type closer together by geodesic or Euclidean distance?
+  * I think geodesic might be more interesting and less obvious
+
+Let's start by taking a looking using LHN with most inputs
+
+```{r, rgl=TRUE}
+with(subset(incc, post_skid==1299700 & pre_skid %in% a2sc.ids),
+     spheres3d(cbind(connector_x, connector_y, connector_z), 
+               radius=300, col='green'))
+```
+
+### Strahler order
+First calculate the strahler order for the connections
+```{r}
+incc$so=NA_integer_
+for(n in mikec11){
+  so=strahler_order(n)
+  
+  # which of the nodes in this neuron have synaptic input
+  post_node_idxs=which(n$d$PointNo%in%incc$post_node_id)
+  incc$so[match(n$d$PointNo[post_node_idxs],incc$post_node_id)]=
+    so$points[post_node_idxs]
+}
+```
+
+Looking at these 
+
+```{r}
+xx=xtabs(~so+I(intype=='PN'), data=subset(incc, np=="LH" & intype%in%c("PN","other")))
+xx
+summary(xx)
+xx=xtabs(~so+I(intype=='PN'), data=subset(incc, np=="LH" & intype%in%c("PN","a2sc")))
+xx
+summary(xx)
+```
+
+
+
 ```{r, eval=FALSE}
 incc %>%
   filter(np=='LH' & intype=='other') %>%
