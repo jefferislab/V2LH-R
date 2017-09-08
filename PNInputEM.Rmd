@@ -222,7 +222,8 @@ xx
 summary(xx)
 ```
 
-
+The conclusion is that there are some small asymmetries in the distribution but 
+the effect sizes appear fairly small.
 
 ```{r, eval=FALSE}
 incc %>%
